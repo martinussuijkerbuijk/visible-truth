@@ -19,6 +19,8 @@ This will give you an **API_ID** and **API_HASH**. keep this to yourself
 Run ```python create_session_id.py```  for the first time and fill in your details.
 This will create a ```journalist_sessions.session``` file where it will use your credentials for scraping etc.
 
+After that create a ```.env``` file and put your credentials there like so: ```TELEGRAM_API_HASH = "blablablablab" TELEGRAM_API_ID = 12345678```
+
 ### 3. Run Script
 
 Simply run 
