@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investigative Assistant</title>
+    <!-- 1. Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 2. Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Main wrapper -->
+    <div id="app-wrapper">
+        
+        <!-- Header from style.css -->
+        <header class="main-header">
+            <div class="logo">Investigative Assistant</div>
+        </header>
+
+        <!-- Main content container -->
+        <div id="app-container">
+
+            <!-- 1. SIDE PANEL (Controls & Log) -->
+            <div id="side-panel">
+                
+                <!-- Controls Section -->
+                <div class="panel-section">
+                    <div class="panel-header">Controls</div>
+                    
+                    <div class="filter-group">
+                        <label for="limit">Message Limit:</label>
+                        <input type="number" id="limit" value="10">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="channels">Channels (one @username per line):</label>
+                        <textarea id="channels" placeholder="QudsNen&#10;paltoday_tv" rows="5"></textarea>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="keywords">Keywords (one per line):</label>
+                        <textarea id="keywords" placeholder="settler violence&#10;olive trees" rows="5"></textarea>
+                    </div>
+
+                    <button id="run_button">Run Scrape</button>
+                </div>
+
+                <!-- Log Section -->
+                <div class="panel-section">
+                    <div class="panel-header">Live Log</div>
+                    <pre id="log">Waiting to start...</pre>
+                </div>
+
+            </div>
+
+            <!-- 2. MAIN CONTENT (Results) -->
+            <div id="main-content">
+                <div class="panel-section">
+                    <div class="panel-header">Results</div>
+
+                    <div class="filter-group">
+                        <label for="filter">Filter Table:</label>
+                        <input type="text" id="filter" placeholder="Filter by keyword, channel, text...">
+                    </div>
+
+                    <!-- Results Table Container -->
+                    <div class="table-container">
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th id="sort_date">Date (UTC)</th>
+                                    <th id="sort_channel">Channel</th>
+                                    <th id="sort_keyword">Keyword</th>
+                                    <th id="sort_text">Message Text</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results_table_body">
+                                <!-- Rows will be injected here by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Get DOM Elements ---
+        const runButton = document.getElementById('run_button');
+        const log = document.getElementById('log');
+        const filterInput = document.getElementById('filter');
+        const resultsTableBody = document.getElementById('results_table_body');
+        
+        // --- Global Store for Results ---
+        let allResults = [];
+
+        // --- Run Scrape Function ---
+        runButton.addEventListener('click', async () => {
+            // 0. Reset UI
+            log.textContent = 'Starting scrape...\n';
+            allResults = [];
+            filterInput.value = '';
+            updateTable();
+            runButton.disabled = true;
+            runButton.textContent = 'Running...';
+
+            // 1. Get form data
+            const scrapeParams = {
+                limit: parseInt(document.getElementById('limit').value, 10),
+                channels: document.getElementById('channels').value,
+                keywords: document.getElementById('keywords').value,
+            };
+
+            // 2. Run Fetch Stream
+            try {
+                const response = await fetch('/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(scrapeParams)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status} ${response.statusText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                // Function to process each line from the stream
+                const processLine = (line) => {
+                    if (line.startsWith('log:')) {
+                        const logMsg = line.substring(4);
+                        log.textContent += logMsg + '\n';
+                        log.scrollTop = log.scrollHeight; // Auto-scroll
+                    
+                    } else if (line.startsWith('data:')) {
+                        const jsonData = line.substring(5);
+                        try {
+                            const messageData = JSON.parse(jsonData);
+                            allResults.push(messageData);
+                            updateTable(); // Re-render the table with filters
+                        } catch (e) {
+                            console.error('Error parsing data:', e, jsonData);
+                        }
+                    
+                    } else if (line.startsWith('done:')) {
+                        // Scrape is finished
+                        log.textContent += '\n--- SCRAPE FINISHED ---';
+                    }
+                };
+
+                // Read from the stream
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break; // Stream finished
+                    }
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    let lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep the last, possibly incomplete line
+                    lines.forEach(processLine);
+                }
+
+                if (buffer.length > 0) {
+                    processLine(buffer);
+                }
+
+            } catch (err) {
+                console.error('Fetch failed:', err);
+                log.textContent += `\n--- ERROR: ${err.message} ---`;
+            } finally {
+                // Re-enable the button
+                runButton.disabled = false;
+                runButton.textContent = 'Run Scrape';
+            }
+        });
+
+        // --- Filter Table Function ---
+        filterInput.addEventListener('keyup', () => {
+            updateTable();
+        });
+
+        function updateTable() {
+            const filterTerm = filterInput.value.toLowerCase();
+            resultsTableBody.innerHTML = ''; // Clear table
+            
+            const filteredData = allResults.filter(row => {
+                return Object.values(row).some(val => 
+                    String(val).toLowerCase().includes(filterTerm)
+                );
+            });
+
+            // Populate table
+            filteredData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td data-label="Date">${row.date}</td>
+                    <td data-label="Channel">${row.channel}</td>
+                    <td data-label="Keyword">${row.keyword}</td>
+                    <td data-label="Text">
+                        <div class="message-text">${row.text}</div>
+                        <a href="${row.link}" target="_blank" class="telegram-link">Open in Telegram</a>
+                    </td>
+                `;
+                resultsTableBody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
