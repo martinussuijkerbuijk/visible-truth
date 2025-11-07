@@ -1,0 +1,16 @@
+pycache/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+create_session.py
+channel_discovery.py
+README.md
+*.csv
+LICENSE
+
+# Ommit Testing folder
+testing/
+visible-truth/

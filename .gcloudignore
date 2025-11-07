@@ -53,8 +53,9 @@ env/
 # Folders + files
 testing/
 visible-truth/
-# .dockerignore
-# Dockerfile
-journalist_session.session
-saved_newsitems.csv
+channel_discovery.py
+create_session.py
 
+README.md
+*.csv
+LICENSE
