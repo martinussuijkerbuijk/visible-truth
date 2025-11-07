@@ -29,7 +29,6 @@ Created 2025
             <div class="logo">Investigative Assistant</div>
         </header>
 
-        <!-- Main content container -->
         <div id="app-container">
 
             <!-- 1. SIDE PANEL (Controls & Log) -->
@@ -75,16 +74,30 @@ Created 2025
                         <input type="text" id="filter" placeholder="Filter by keyword, channel, text...">
                     </div>
 
+                    <!-- Action Bar -->
+                    <div class="action-bar">
+                        <div class="selection-info">
+                            <span id="selection-count">0 items selected</span>
+                        </div>
+                        <div class="action-buttons">
+                            <button id="select-all-btn" class="secondary-btn">Select All</button>
+                            <button id="deselect-all-btn" class="secondary-btn">Deselect All</button>
+                            <button id="download-btn" class="primary-btn" disabled>Download Selected CSV</button>
+                        </div>
+                    </div>
+
                     <!-- Results Table Container -->
                     <div class="table-container">
                         <table id="results-table">
                             <thead>
                                 <tr>
+                                    <th class="checkbox-col">
+                                        <input type="checkbox" id="select-all-checkbox" title="Select/Deselect All">
+                                    </th>
                                     <th id="sort_date">Date (UTC)</th>
                                     <th id="sort_channel">Channel</th>
                                     <th id="sort_keyword">Keyword</th>
                                     <th id="sort_text">Message Text</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="results_table_body">
@@ -103,46 +116,103 @@ Created 2025
         const log = document.getElementById('log');
         const filterInput = document.getElementById('filter');
         const resultsTableBody = document.getElementById('results_table_body');
+        const downloadBtn = document.getElementById('download-btn');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const deselectAllBtn = document.getElementById('deselect-all-btn');
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const selectionCount = document.getElementById('selection-count');
         
         // --- Global Store for Results ---
         let allResults = [];
+        let selectedIndices = new Set();
 
-        // --- Save Result Function ---
-        async function saveResult(rowData, buttonElement) {
-            // Disable button during save
-            buttonElement.disabled = true;
-            buttonElement.textContent = 'Saving...';
+        // --- Update Selection Count and Button State ---
+        function updateSelectionUI() {
+            const count = selectedIndices.size;
+            selectionCount.textContent = `${count} item${count !== 1 ? 's' : ''} selected`;
+            downloadBtn.disabled = count === 0;
             
-            try {
-                const response = await fetch('/save_result', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(rowData)
-                });
-                
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    buttonElement.textContent = 'Saved ✓';
-                    buttonElement.style.backgroundColor = '#28a745';
-                    setTimeout(() => {
-                        buttonElement.textContent = 'Save';
-                        buttonElement.style.backgroundColor = '';
-                        buttonElement.disabled = false;
-                    }, 2000);
+            // Update "select all" checkbox state
+            const visibleCheckboxes = document.querySelectorAll('.row-checkbox');
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            selectAllCheckbox.checked = visibleCheckboxes.length > 0 && checkedCount === visibleCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+        }
+
+        // --- Select/Deselect All Visible Rows ---
+        selectAllBtn.addEventListener('click', () => {
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = true;
+                selectedIndices.add(parseInt(cb.dataset.index));
+            });
+            updateSelectionUI();
+        });
+
+        deselectAllBtn.addEventListener('click', () => {
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = false;
+                selectedIndices.delete(parseInt(cb.dataset.index));
+            });
+            updateSelectionUI();
+        });
+
+        // --- Header Checkbox Toggle ---
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+                const index = parseInt(cb.dataset.index);
+                if (isChecked) {
+                    selectedIndices.add(index);
                 } else {
-                    throw new Error(result.message || 'Save failed');
+                    selectedIndices.delete(index);
                 }
-            } catch (err) {
-                console.error('Save failed:', err);
-                buttonElement.textContent = 'Error!';
-                buttonElement.style.backgroundColor = '#dc3545';
-                setTimeout(() => {
-                    buttonElement.textContent = 'Save';
-                    buttonElement.style.backgroundColor = '';
-                    buttonElement.disabled = false;
-                }, 2000);
+            });
+            updateSelectionUI();
+        });
+
+        // --- Download Selected Items as CSV ---
+        downloadBtn.addEventListener('click', () => {
+            const selectedResults = Array.from(selectedIndices)
+                .map(index => allResults[index])
+                .filter(item => item !== undefined);
+            
+            if (selectedResults.length === 0) {
+                alert('No items selected for download');
+                return;
             }
+
+            const csv = convertToCSV(selectedResults);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `investigative_results_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            log.textContent += `\n✓ Downloaded ${selectedResults.length} items as CSV`;
+            log.scrollTop = log.scrollHeight;
+        });
+
+        // --- Convert Data to CSV ---
+        function convertToCSV(data) {
+            const headers = ['Date', 'Channel', 'Keyword', 'Message Text', 'Link'];
+            const csvHeaders = headers.join(',');
+            
+            const csvRows = data.map(row => {
+                return [
+                    `"${row.date}"`,
+                    `"${row.channel}"`,
+                    `"${row.keyword}"`,
+                    `"${(row.text || '').replace(/"/g, '""')}"`,
+                    `"${row.link}"`
+                ].join(',');
+            });
+            
+            return [csvHeaders, ...csvRows].join('\n');
         }
 
         // --- Run Scrape Function ---
@@ -150,6 +220,7 @@ Created 2025
             // 0. Reset UI
             log.textContent = 'Starting scrape...\n';
             allResults = [];
+            selectedIndices.clear();
             filterInput.value = '';
             updateTable();
             runButton.disabled = true;
@@ -237,16 +308,26 @@ Created 2025
             const filterTerm = filterInput.value.toLowerCase();
             resultsTableBody.innerHTML = ''; // Clear table
             
-            const filteredData = allResults.filter(row => {
-                return Object.values(row).some(val => 
-                    String(val).toLowerCase().includes(filterTerm)
-                );
-            });
+            const filteredData = allResults
+                .map((row, index) => ({ ...row, originalIndex: index }))
+                .filter(row => {
+                    return Object.values(row).some(val => 
+                        String(val).toLowerCase().includes(filterTerm)
+                    );
+                });
 
             // Populate table
             filteredData.forEach(row => {
                 const tr = document.createElement('tr');
+                const isChecked = selectedIndices.has(row.originalIndex);
+                
                 tr.innerHTML = `
+                    <td class="checkbox-col">
+                        <input type="checkbox" 
+                               class="row-checkbox" 
+                               data-index="${row.originalIndex}"
+                               ${isChecked ? 'checked' : ''}>
+                    </td>
                     <td data-label="Date">${row.date}</td>
                     <td data-label="Channel">${row.channel}</td>
                     <td data-label="Keyword">${row.keyword}</td>
@@ -254,17 +335,24 @@ Created 2025
                         <div class="message-text">${row.text}</div>
                         <a href="${row.link}" target="_blank" class="telegram-link">Open in Telegram</a>
                     </td>
-                    <td data-label="Actions">
-                        <button class="save-btn">Save</button>
-                    </td>
                 `;
                 
-                // Add event listener to the save button
-                const saveBtn = tr.querySelector('.save-btn');
-                saveBtn.addEventListener('click', () => saveResult(row, saveBtn));
+                // Add event listener to checkbox
+                const checkbox = tr.querySelector('.row-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    if (e.target.checked) {
+                        selectedIndices.add(index);
+                    } else {
+                        selectedIndices.delete(index);
+                    }
+                    updateSelectionUI();
+                });
                 
                 resultsTableBody.appendChild(tr);
             });
+            
+            updateSelectionUI();
         }
     </script>
 </body>

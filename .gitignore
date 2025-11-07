@@ -56,4 +56,5 @@ visible-truth/
 .dockerignore
 Dockerfile
 journalist_session.session
+saved_newsitems.csv
 
