@@ -1,3 +1,5 @@
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 # Simple Instructions for a simple web app for a telegram Scraper
 
 ## initialization
@@ -29,3 +31,11 @@ python app.py
 ```
 This will give you a link to a local server http://127.0.0.1:8080 (and public as well)
 Open the link in your browser.
+
+### License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Acknowledgments
+
+- Built with Flask and Telethon

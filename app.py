@@ -1,3 +1,11 @@
+"""
+Investigative Assistant - Telegram Channel Scraper
+Author: [Martinus Suijkerbuijk]
+GitHub: https://github.com/martinussuijkerbuijk/visible-truth
+License: MIT License
+Created: 2025
+"""
+
 import asyncio
 import time
 from flask import Flask, render_template, request, Response
@@ -6,6 +14,10 @@ from telethon.errors.rpcerrorlist import FloodWaitError
 import json
 import os
 from dotenv import load_dotenv
+
+import csv
+from flask import jsonify
+
 
 load_dotenv()
 
@@ -187,6 +199,44 @@ def scrape():
     # We now call our new synchronous "bridge" function,
     # which Flask's Response object can iterate over correctly.
     return Response(_stream_helper(params), mimetype='text/event-stream')
+
+
+@app.route('/save_result', methods=['POST'])
+def save_result():
+    """
+    Saves a single result to a CSV file.
+    """
+    try:
+        data = request.json
+        csv_file = 'saved_newsitems.csv'
+        
+        # Check if file exists to determine if we need to write headers
+        file_exists = os.path.exists(csv_file)
+        
+        # Open in append mode
+        with open(csv_file, 'a', newline='', encoding='utf-8') as f:
+            fieldnames = ['date', 'channel', 'keyword', 'text', 'link']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            # Write header only if file is new
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write the data
+            writer.writerow({
+                'date': data.get('date'),
+                'channel': data.get('channel'),
+                'keyword': data.get('keyword'),
+                'text': data.get('text'),
+                'link': data.get('link')
+            })
+        
+        return jsonify({'status': 'success', 'message': 'Result saved successfully'})
+    
+    except Exception as e:
+        print(f"[SERVER LOG] Error saving result: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
 
 if __name__ == '__main__':
     print("--- Investigative Assistant ---")

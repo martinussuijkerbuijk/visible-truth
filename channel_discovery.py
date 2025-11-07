@@ -5,27 +5,27 @@ from telethon.errors.rpcerrorlist import FloodWaitError
 from telethon.tl import functions, types
 import time
 import re
+import os
 from dotenv import load_dotenv
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURATION: !! YOU MUST EDIT THIS SECTION !!
 # -----------------------------------------------------------------------------
 # Get these values from my.telegram.org
-API_ID = 21106530  # YOUR API ID (as an integer)
 
 load_dotenv() # you can set your env variables in the temrinal with export TELEGRAM_API_KEY or put it in a .env file
-API_HASH = "TELEGRAM_API_HASH"  # YOUR API HASH (as a string)
+API_ID = os.environ.get('TELEGRAM_API_ID')    
+API_HASH = os.environ.get('TELEGRAM_API_HASH')
 
-# The phone number associated with your "burner" account
-PHONE_NUMBER = '+4745480887'
+# The phone number associated with your "burner" account :)
+PHONE_NUMBER = '' # put your phonenumber with landcode here
 
-# --- KEYWORD CONFIGURATION ---
 DISCOVERY_KEYWORDS = [
-    # --- English Keywords (Broad & Specific) ---
+    # --- English Keywords (Broad & Specific) related to the West bank case---
     'settler violence', 'olive harvest', 'olive trees', 'West Bank',
     'Hebron', 'Nablus', 'Huwara', 'land seizure', 'farmers attacked',
     
-    # --- Arabic Keywords (On-the-ground terms) ---
+    # --- Arabic Keywords (On-the-ground terms) --- Translations provided by Gemini
     'هجمات المستوطنين',       # settler attacks
     'حرق أشجار الزTيتون',     # burning olive trees
     'اعتداء على المزارعين', # attack on farmers
@@ -57,11 +57,9 @@ MESSAGE_LIMIT_PER_KEYWORD = 10
 
 # Helper function to clean text for CSV
 def clean_text(text):
-    # --- THIS IS THE FIX ---
     # If the message has no text (e.g., it's just a photo), return a placeholder.
     if not text:
         return "[Media Message - No Text]"
-    # --- END OF FIX ---
     
     text = text.replace('\n', ' ').replace('\r', ' ')
     text = re.sub(r',', ';', text) # Replace commas to not break CSV

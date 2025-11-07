@@ -35,6 +35,11 @@ body {
     overflow: hidden; /* Prevents whole page scroll */
 }
 
+img {
+    height: 40px;
+    padding-right: 20px;
+}
+
 /* --- Header --- */
 .main-header {
     display: flex;
@@ -221,4 +226,17 @@ button:disabled {
 
 ::-webkit-scrollbar-thumb:hover {
     background-color: var(--text-muted-color);
+}
+
+.save-btn {
+    width: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    font-size: 0.85rem;
+    background-color: var(--accent-color);
+    transition: background-color 0.2s;
+}
+
+.save-btn:hover:not(:disabled) {
+    opacity: 0.8;
 }

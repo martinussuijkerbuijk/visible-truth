@@ -1,15 +1,21 @@
 <!DOCTYPE html>
+<!--
+Investigative Assistant
+Author: [Martinus Suijkerbuijk]
+GitHub: https://github.com/martinussuijkerbuijk/visible-truth
+License: MIT License
+Created 2025
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Investigative Assistant</title>
-    <!-- 1. Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- 2. Custom Stylesheet -->
+    <!-- 2. Custom Stylesheet you can change this in ./static/style.css-->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,6 +25,7 @@
         
         <!-- Header from style.css -->
         <header class="main-header">
+            <img src="Climate_Rights_Logo-b1-02.png" alt="Logo">
             <div class="logo">Investigative Assistant</div>
         </header>
 
@@ -77,6 +84,7 @@
                                     <th id="sort_channel">Channel</th>
                                     <th id="sort_keyword">Keyword</th>
                                     <th id="sort_text">Message Text</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="results_table_body">
@@ -98,6 +106,44 @@
         
         // --- Global Store for Results ---
         let allResults = [];
+
+        // --- Save Result Function ---
+        async function saveResult(rowData, buttonElement) {
+            // Disable button during save
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Saving...';
+            
+            try {
+                const response = await fetch('/save_result', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rowData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    buttonElement.textContent = 'Saved ✓';
+                    buttonElement.style.backgroundColor = '#28a745';
+                    setTimeout(() => {
+                        buttonElement.textContent = 'Save';
+                        buttonElement.style.backgroundColor = '';
+                        buttonElement.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(result.message || 'Save failed');
+                }
+            } catch (err) {
+                console.error('Save failed:', err);
+                buttonElement.textContent = 'Error!';
+                buttonElement.style.backgroundColor = '#dc3545';
+                setTimeout(() => {
+                    buttonElement.textContent = 'Save';
+                    buttonElement.style.backgroundColor = '';
+                    buttonElement.disabled = false;
+                }, 2000);
+            }
+        }
 
         // --- Run Scrape Function ---
         runButton.addEventListener('click', async () => {
@@ -208,7 +254,15 @@
                         <div class="message-text">${row.text}</div>
                         <a href="${row.link}" target="_blank" class="telegram-link">Open in Telegram</a>
                     </td>
+                    <td data-label="Actions">
+                        <button class="save-btn">Save</button>
+                    </td>
                 `;
+                
+                // Add event listener to the save button
+                const saveBtn = tr.querySelector('.save-btn');
+                saveBtn.addEventListener('click', () => saveResult(row, saveBtn));
+                
                 resultsTableBody.appendChild(tr);
             });
         }
